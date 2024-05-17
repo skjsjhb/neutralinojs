@@ -10,19 +10,17 @@ namespace alt {
 
 json vendor(const json& input);
 
-namespace request {
-
-    /**
-     * Performs buffered GET request.
-     */
-    json get(const json& input);
-
-    /**
-     * Performs buffered POST request.
-     */
-    json post(const json& input);
-}
-
+/**
+ * Performs HTTP requests. Params are below:
+ * host - The host name.
+ * path - Path to request.
+ * method - HTTP method.
+ * headers - HTTP headers.
+ * body - Request body.
+ *
+ * All fields are mandatory. They can be left as empty if unused, but they must exist.
+ */
+json request(const json& input);
 }
 
 #endif // #define NEU_ALT_H
