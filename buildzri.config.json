@@ -22,6 +22,7 @@
             "auth/*.cpp",
             "server/*.cpp",
             "api/*/*.cpp",
+            "api/*/*.cc",
             "lib/tinyprocess/process.cpp",
             "lib/easylogging/easylogging++.cc",
             "lib/platformfolders/platform_folders.cpp",
@@ -49,7 +50,7 @@
     },
     "options": {
         "linux": [
-            "$(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0 glib-2.0 xcb x11 xrandr)",
+            "$(pkg-config --cflags --libs gtk+-3.0 webkit2gtk-4.0 glib-2.0 xcb x11 xrandr openssl)",
             "-pthread",
             "-lpng",
             "-lstdc++fs",
@@ -58,17 +59,19 @@
             "-Os"
         ],
         "darwin": [
+            "$(pkg-config --cflags --libs openssl)",
             "-Wno-deprecated-declarations",
             "-framework WebKit",
             "-framework Cocoa",
             "-Os"
         ],
         "windows": [
+            "/I\"C:\\Program Files\\OpenSSL-Win64\\include\"",
             "/utf-8",
             "/EHsc",
             "/Os",
             "/Fobin/",
-            "/link lib/webview/windows/WebView2LoaderStatic.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib ntdll.lib dwmapi.lib"
+            "/link lib/webview/windows/WebView2LoaderStatic.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib ntdll.lib dwmapi.lib \"C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MT\\libssl_static.lib\" \"C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MT\\libcrypto_static.lib\""
         ]
     },
     "definitions": {

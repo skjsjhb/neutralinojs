@@ -6,25 +6,26 @@
 
 #include <websocketpp/server.hpp>
 
-#include "lib/json/json.hpp"
-#include "auth/authbasic.h"
-#include "auth/permission.h"
-#include "server/router.h"
-#include "helpers.h"
-#include "errors.h"
-#include "settings.h"
-#include "resources.h"
-#include "api/os/os.h"
-#include "api/fs/fs.h"
-#include "api/computer/computer.h"
-#include "api/storage/storage.h"
-#include "api/debug/debug.h"
+#include "api/alt/alt.h"
 #include "api/app/app.h"
-#include "api/window/window.h"
+#include "api/clipboard/clipboard.h"
+#include "api/computer/computer.h"
+#include "api/custom/custom.h"
+#include "api/debug/debug.h"
 #include "api/events/events.h"
 #include "api/extensions/extensions.h"
-#include "api/clipboard/clipboard.h"
-#include "api/custom/custom.h"
+#include "api/fs/fs.h"
+#include "api/os/os.h"
+#include "api/storage/storage.h"
+#include "api/window/window.h"
+#include "auth/authbasic.h"
+#include "auth/permission.h"
+#include "errors.h"
+#include "helpers.h"
+#include "lib/json/json.hpp"
+#include "resources.h"
+#include "server/router.h"
+#include "settings.h"
 
 #if defined(__APPLE__)
 #include <dispatch/dispatch.h>
@@ -38,98 +39,102 @@ namespace router {
 
 map<string, router::NativeMethod> methodMap = {
     // Neutralino.app
-    {"app.exit", app::controllers::exit},
-    {"app.killProcess", app::controllers::killProcess},
-    {"app.getConfig", app::controllers::getConfig},
-    {"app.broadcast", app::controllers::broadcast},
-    {"app.readProcessInput", app::controllers::readProcessInput},
-    {"app.writeProcessOutput", app::controllers::writeProcessOutput},
-    {"app.writeProcessError", app::controllers::writeProcessError},
+    { "app.exit", app::controllers::exit },
+    { "app.killProcess", app::controllers::killProcess },
+    { "app.getConfig", app::controllers::getConfig },
+    { "app.broadcast", app::controllers::broadcast },
+    { "app.readProcessInput", app::controllers::readProcessInput },
+    { "app.writeProcessOutput", app::controllers::writeProcessOutput },
+    { "app.writeProcessError", app::controllers::writeProcessError },
     // Neutralino.window
-    {"window.setTitle", window::controllers::setTitle},
-    {"window.getTitle", window::controllers::getTitle},
-    {"window.maximize", window::controllers::maximize},
-    {"window.isMaximized", window::controllers::isMaximized},
-    {"window.unmaximize", window::controllers::unmaximize},
-    {"window.minimize", window::controllers::minimize},
-    {"window.isVisible", window::controllers::isVisible},
-    {"window.show", window::controllers::show},
-    {"window.hide", window::controllers::hide},
-    {"window.isFullScreen", window::controllers::isFullScreen},
-    {"window.setFullScreen", window::controllers::setFullScreen},
-    {"window.exitFullScreen", window::controllers::exitFullScreen},
-    {"window.focus", window::controllers::focus},
-    {"window.setIcon", window::controllers::setIcon},
-    {"window.move", window::controllers::move},
-    {"window.center", window::controllers::center},
-    {"window.setSize", window::controllers::setSize},
-    {"window.getSize", window::controllers::getSize},
-    {"window.getPosition", window::controllers::getPosition},
-    {"window.setAlwaysOnTop", window::controllers::setAlwaysOnTop},
+    { "window.setTitle", window::controllers::setTitle },
+    { "window.getTitle", window::controllers::getTitle },
+    { "window.maximize", window::controllers::maximize },
+    { "window.isMaximized", window::controllers::isMaximized },
+    { "window.unmaximize", window::controllers::unmaximize },
+    { "window.minimize", window::controllers::minimize },
+    { "window.isVisible", window::controllers::isVisible },
+    { "window.show", window::controllers::show },
+    { "window.hide", window::controllers::hide },
+    { "window.isFullScreen", window::controllers::isFullScreen },
+    { "window.setFullScreen", window::controllers::setFullScreen },
+    { "window.exitFullScreen", window::controllers::exitFullScreen },
+    { "window.focus", window::controllers::focus },
+    { "window.setIcon", window::controllers::setIcon },
+    { "window.move", window::controllers::move },
+    { "window.center", window::controllers::center },
+    { "window.setSize", window::controllers::setSize },
+    { "window.getSize", window::controllers::getSize },
+    { "window.getPosition", window::controllers::getPosition },
+    { "window.setAlwaysOnTop", window::controllers::setAlwaysOnTop },
     // Neutralino.computer
-    {"computer.getMemoryInfo", computer::controllers::getMemoryInfo},
-    {"computer.getArch", computer::controllers::getArch},
-    {"computer.getKernelInfo", computer::controllers::getKernelInfo},
-    {"computer.getOSInfo", computer::controllers::getOSInfo},
-    {"computer.getCPUInfo", computer::controllers::getCPUInfo},
-    {"computer.getDisplays", computer::controllers::getDisplays},
-    {"computer.getMousePosition", computer::controllers::getMousePosition},
+    { "computer.getMemoryInfo", computer::controllers::getMemoryInfo },
+    { "computer.getArch", computer::controllers::getArch },
+    { "computer.getKernelInfo", computer::controllers::getKernelInfo },
+    { "computer.getOSInfo", computer::controllers::getOSInfo },
+    { "computer.getCPUInfo", computer::controllers::getCPUInfo },
+    { "computer.getDisplays", computer::controllers::getDisplays },
+    { "computer.getMousePosition", computer::controllers::getMousePosition },
     // Neutralino.log
-    {"debug.log", debug::controllers::log},
+    { "debug.log", debug::controllers::log },
     // Neutralino.filesystem
-    {"filesystem.createDirectory", fs::controllers::createDirectory},
-    {"filesystem.remove", fs::controllers::remove},
-    {"filesystem.readFile", fs::controllers::readFile},
-    {"filesystem.readBinaryFile", fs::controllers::readBinaryFile},
-    {"filesystem.writeFile", fs::controllers::writeFile},
-    {"filesystem.writeBinaryFile", fs::controllers::writeBinaryFile},
-    {"filesystem.appendFile", fs::controllers::appendFile},
-    {"filesystem.appendBinaryFile", fs::controllers::appendBinaryFile},
-    {"filesystem.openFile", fs::controllers::openFile},
-    {"filesystem.createWatcher", fs::controllers::createWatcher},
-    {"filesystem.removeWatcher", fs::controllers::removeWatcher},
-    {"filesystem.getWatchers", fs::controllers::getWatchers},
-    {"filesystem.updateOpenedFile", fs::controllers::updateOpenedFile},
-    {"filesystem.getOpenedFileInfo", fs::controllers::getOpenedFileInfo},
-    {"filesystem.readDirectory", fs::controllers::readDirectory},
-    {"filesystem.copy", fs::controllers::copy},
-    {"filesystem.move", fs::controllers::move},
-    {"filesystem.getStats", fs::controllers::getStats},
+    { "filesystem.createDirectory", fs::controllers::createDirectory },
+    { "filesystem.remove", fs::controllers::remove },
+    { "filesystem.readFile", fs::controllers::readFile },
+    { "filesystem.readBinaryFile", fs::controllers::readBinaryFile },
+    { "filesystem.writeFile", fs::controllers::writeFile },
+    { "filesystem.writeBinaryFile", fs::controllers::writeBinaryFile },
+    { "filesystem.appendFile", fs::controllers::appendFile },
+    { "filesystem.appendBinaryFile", fs::controllers::appendBinaryFile },
+    { "filesystem.openFile", fs::controllers::openFile },
+    { "filesystem.createWatcher", fs::controllers::createWatcher },
+    { "filesystem.removeWatcher", fs::controllers::removeWatcher },
+    { "filesystem.getWatchers", fs::controllers::getWatchers },
+    { "filesystem.updateOpenedFile", fs::controllers::updateOpenedFile },
+    { "filesystem.getOpenedFileInfo", fs::controllers::getOpenedFileInfo },
+    { "filesystem.readDirectory", fs::controllers::readDirectory },
+    { "filesystem.copy", fs::controllers::copy },
+    { "filesystem.move", fs::controllers::move },
+    { "filesystem.getStats", fs::controllers::getStats },
     // Neutralino.os
-    {"os.execCommand", os::controllers::execCommand},
-    {"os.spawnProcess", os::controllers::spawnProcess},
-    {"os.updateSpawnedProcess", os::controllers::updateSpawnedProcess},
-    {"os.getSpawnedProcesses", os::controllers::getSpawnedProcesses},
-    {"os.getEnv", os::controllers::getEnv},
-    {"os.getEnvs", os::controllers::getEnvs},
-    {"os.showOpenDialog", os::controllers::showOpenDialog},
-    {"os.showFolderDialog", os::controllers::showFolderDialog},
-    {"os.showSaveDialog", os::controllers::showSaveDialog},
-    {"os.showNotification", os::controllers::showNotification},
-    {"os.showMessageBox", os::controllers::showMessageBox},
-    {"os.setTray", os::controllers::setTray},
-    {"os.open", os::controllers::open},
-    {"os.getPath", os::controllers::getPath},
+    { "os.execCommand", os::controllers::execCommand },
+    { "os.spawnProcess", os::controllers::spawnProcess },
+    { "os.updateSpawnedProcess", os::controllers::updateSpawnedProcess },
+    { "os.getSpawnedProcesses", os::controllers::getSpawnedProcesses },
+    { "os.getEnv", os::controllers::getEnv },
+    { "os.getEnvs", os::controllers::getEnvs },
+    { "os.showOpenDialog", os::controllers::showOpenDialog },
+    { "os.showFolderDialog", os::controllers::showFolderDialog },
+    { "os.showSaveDialog", os::controllers::showSaveDialog },
+    { "os.showNotification", os::controllers::showNotification },
+    { "os.showMessageBox", os::controllers::showMessageBox },
+    { "os.setTray", os::controllers::setTray },
+    { "os.open", os::controllers::open },
+    { "os.getPath", os::controllers::getPath },
     // Neutralino.storage
-    {"storage.setData", storage::controllers::setData},
-    {"storage.getData", storage::controllers::getData},
-    {"storage.getKeys", storage::controllers::getKeys},
+    { "storage.setData", storage::controllers::setData },
+    { "storage.getData", storage::controllers::getData },
+    { "storage.getKeys", storage::controllers::getKeys },
     // Neutralino.events
-    {"events.broadcast", events::controllers::broadcast},
+    { "events.broadcast", events::controllers::broadcast },
     // Neutralino.extensions
-    {"extensions.dispatch", extensions::controllers::dispatch},
-    {"extensions.broadcast", extensions::controllers::broadcast},
-    {"extensions.getStats", extensions::controllers::getStats},
+    { "extensions.dispatch", extensions::controllers::dispatch },
+    { "extensions.broadcast", extensions::controllers::broadcast },
+    { "extensions.getStats", extensions::controllers::getStats },
     // Neutralino.clipboard
-    {"clipboard.getFormat", clipboard::controllers::getFormat},
-    {"clipboard.readText", clipboard::controllers::readText},
-    {"clipboard.readImage", clipboard::controllers::readImage},
-    {"clipboard.writeText", clipboard::controllers::writeText},
-    {"clipboard.writeImage", clipboard::controllers::writeImage},
-    {"clipboard.clear", clipboard::controllers::clear},
+    { "clipboard.getFormat", clipboard::controllers::getFormat },
+    { "clipboard.readText", clipboard::controllers::readText },
+    { "clipboard.readImage", clipboard::controllers::readImage },
+    { "clipboard.writeText", clipboard::controllers::writeText },
+    { "clipboard.writeImage", clipboard::controllers::writeImage },
+    { "clipboard.clear", clipboard::controllers::clear },
     // Neutralino.custom
-    {"custom.getMethods", custom::controllers::getMethods},
-    // {"custom.add", custom::controllers::add} // Sample custom method
+    { "custom.getMethods", custom::controllers::getMethods },
+
+    // Alt Server
+    { "alt.vendor", alt::vendor },
+    { "alt.request.get", alt::request::get },
+    { "alt.request.post", alt::request::post }
 };
 
 map<string, router::NativeMethod> getMethodMap() {
