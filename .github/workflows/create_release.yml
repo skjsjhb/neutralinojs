@@ -26,7 +26,8 @@ jobs:
         sudo apt-get install -y -f \
         libgtk-3-dev \
         libwebkit2gtk-4.0-37 \
-        libwebkit2gtk-4.0-dev
+        libwebkit2gtk-4.0-dev \
+        libssl-dev
 
     - name: Build
       if: ${{ matrix.arch == 'x64' }}
@@ -47,7 +48,8 @@ jobs:
           git \
           python3 \
           g++ \
-          pkg-config
+          pkg-config \
+          libssl-dev
         githubToken: ${{ github.token }}
         
         dockerRunArgs: |
@@ -67,6 +69,8 @@ jobs:
     steps:
     - name: Checkout 
       uses: actions/checkout@v3
+    - name: Install Dependencies
+      run: choco install openssl
     - name: Build
       run: python ./scripts/bz.py
       shell: cmd
