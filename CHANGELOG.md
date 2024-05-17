@@ -6,6 +6,8 @@ rename `Unreleased` topic with the new version tag. Finally, create a new `Unrel
 
 ## Unreleased
 
+## v5.1.0-alt
+
 ### API: window
 - Improve the behaviour of the `window.show()` function on Windows. Now, this function flashes the window if it's already in foreground and activates the window properly if it's minimized.
 
