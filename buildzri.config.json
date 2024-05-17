@@ -66,12 +66,12 @@
             "-Os"
         ],
         "windows": [
-            "/I\"C:\\Program Files\\OpenSSL-Win64\\include\"",
+            "/I\"C:\\Program Files\\OpenSSL\\include\"",
             "/utf-8",
             "/EHsc",
             "/Os",
             "/Fobin/",
-            "/link lib/webview/windows/WebView2LoaderStatic.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib ntdll.lib dwmapi.lib \"C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MT\\libssl_static.lib\" \"C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MT\\libcrypto_static.lib\""
+            "/link lib/webview/windows/WebView2LoaderStatic.lib gdi32.lib version.lib Ole32.lib OleAut32.lib wbemuuid.lib ntdll.lib dwmapi.lib \"C:\\Program Files\\OpenSSL\\lib\\VC\\x64\\MT\\libssl_static.lib\" \"C:\\Program Files\\OpenSSL\\lib\\VC\\x64\\MT\\libcrypto_static.lib\""
         ]
     },
     "definitions": {

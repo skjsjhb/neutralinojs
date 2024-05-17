@@ -72,10 +72,6 @@ jobs:
     - name: Install Dependencies
       run: |
         choco install openssl
-        mv "C:\Program Files\OpenSSL" OpenSSL-Win64
-        ls "C:\Program Files\OpenSSL-Win64"
-        ls "C:\Program Files\OpenSSL-Win64\include"
-        ls "C:\Program Files\OpenSSL-Win64\lib"
     - name: Build
       run: python ./scripts/bz.py
       shell: cmd
