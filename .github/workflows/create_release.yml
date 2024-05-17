@@ -72,7 +72,7 @@ jobs:
     - name: Install Dependencies
       run: |
         choco install openssl
-        rename "C:\Program Files\OpenSSL" OpenSSL-Win64
+        mv "C:\Program Files\OpenSSL" OpenSSL-Win64
     - name: Build
       run: python ./scripts/bz.py
       shell: cmd
