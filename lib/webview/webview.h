@@ -45,7 +45,6 @@
 #define WEBVIEW_COCOA
 #elif defined(_WIN32)
 #define WEBVIEW_EDGE
-#define HAS_DATAPATH_SUPPORT
 #else
 #error "please, specify webview backend"
 #endif
@@ -1048,18 +1047,14 @@ namespace webview {
 
 class webview : public browser_engine {
 public:
-#ifdef HAS_DATAPATH_SUPPORT
     webview(bool debug = false, void* wnd = nullptr, bool transparent = false, const std::wstring datapath = L"")
+#ifdef WEBVIEW_EDGE
         : browser_engine(debug, wnd, transparent, datapath)
-    {
-    }
-
 #else
-    webview(bool debug = false, void* wnd = nullptr, bool transparent = false)
         : browser_engine(debug, wnd, transparent)
+#endif
     {
     }
-#endif
 
     void navigate(const std::string url)
     {
