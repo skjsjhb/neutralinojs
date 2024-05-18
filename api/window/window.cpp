@@ -534,66 +534,67 @@ void _close(int exitCode) {
 
 namespace controllers {
 
-void __createWindow() {
-    savedState = windowProps.useSavedState && __loadSavedWindowProps();
+    void __createWindow(const std::wstring datapath)
+    {
+        savedState = windowProps.useSavedState && __loadSavedWindowProps();
 
-    nativeWindow = new webview::webview(windowProps.enableInspector, nullptr, windowProps.transparent);
-    nativeWindow->set_title(windowProps.title);
-    if(windowProps.extendUserAgentWith != "") {
-        nativeWindow->extend_user_agent(windowProps.extendUserAgentWith);
+        nativeWindow = new webview::webview(windowProps.enableInspector, nullptr, windowProps.transparent, datapath);
+        nativeWindow->set_title(windowProps.title);
+        if (windowProps.extendUserAgentWith != "") {
+            nativeWindow->extend_user_agent(windowProps.extendUserAgentWith);
+        }
+        nativeWindow->set_size(windowProps.sizeOptions.width,
+            windowProps.sizeOptions.height,
+            windowProps.sizeOptions.minWidth, windowProps.sizeOptions.minHeight,
+            windowProps.sizeOptions.maxWidth, windowProps.sizeOptions.maxHeight,
+            windowProps.sizeOptions.resizable);
+        nativeWindow->setEventHandler(&window::handlers::windowStateChange);
+
+#if defined(__linux__) || defined(__FreeBSD__)
+        windowHandle = (GtkWidget*)nativeWindow->window();
+
+#elif defined(__APPLE__)
+        windowHandle = (id)nativeWindow->window();
+        ((void (*)(id, SEL, bool))objc_msgSend)((id)windowHandle,
+            "setHasShadow:"_sel, true);
+
+#elif defined(_WIN32)
+        windowHandle = (HWND)nativeWindow->window();
+#endif
+
+#if !defined(_WIN32)
+        if (!window::isSavedStateLoaded() && windowProps.center)
+            window::center(true);
+        else
+            window::move(windowProps.x, windowProps.y);
+#endif
+
+        if (windowProps.maximize)
+            window::maximize();
+
+        if (windowProps.hidden)
+            window::hide();
+
+#if defined(_WIN32)
+        if (!windowProps.hidden && __isFakeHidden())
+            __undoFakeHidden();
+#endif
+
+        if (windowProps.fullScreen)
+            window::setFullScreen();
+
+        if (windowProps.icon != "")
+            window::setIcon(windowProps.icon);
+
+        if (windowProps.alwaysOnTop)
+            window::setAlwaysOnTop(true);
+
+        if (windowProps.borderless)
+            window::setBorderless();
+
+        nativeWindow->navigate(windowProps.url);
+        nativeWindow->run();
     }
-    nativeWindow->set_size(windowProps.sizeOptions.width,
-                    windowProps.sizeOptions.height,
-                    windowProps.sizeOptions.minWidth, windowProps.sizeOptions.minHeight,
-                    windowProps.sizeOptions.maxWidth, windowProps.sizeOptions.maxHeight,
-                    windowProps.sizeOptions.resizable);
-    nativeWindow->setEventHandler(&window::handlers::windowStateChange);
-
-    #if defined(__linux__) || defined(__FreeBSD__)
-    windowHandle = (GtkWidget*) nativeWindow->window();
-
-    #elif defined(__APPLE__)
-    windowHandle = (id) nativeWindow->window();
-    ((void (*)(id, SEL, bool))objc_msgSend)((id) windowHandle,
-                "setHasShadow:"_sel, true);
-
-    #elif defined(_WIN32)
-    windowHandle = (HWND) nativeWindow->window();
-    #endif
-
-    #if !defined(_WIN32)
-    if(!window::isSavedStateLoaded() && windowProps.center)
-        window::center(true);
-    else
-        window::move(windowProps.x, windowProps.y);
-    #endif
-
-    if(windowProps.maximize)
-        window::maximize();
-
-    if(windowProps.hidden)
-        window::hide();
-
-    #if defined(_WIN32)
-    if (!windowProps.hidden && __isFakeHidden())
-		__undoFakeHidden();
-    #endif
-
-    if(windowProps.fullScreen)
-        window::setFullScreen();
-
-    if(windowProps.icon != "")
-        window::setIcon(windowProps.icon);
-
-    if(windowProps.alwaysOnTop)
-        window::setAlwaysOnTop(true);
-
-    if(windowProps.borderless)
-        window::setBorderless();
-
-    nativeWindow->navigate(windowProps.url);
-    nativeWindow->run();
-}
 
 window::SizeOptions __jsonToSizeOptions(const json &input, bool useDefaultRect = false) {
     window::SizeOptions sizeOptions;
@@ -868,7 +869,15 @@ json init(const json &input) {
     if(helpers::hasField(input, "useSavedState"))
         windowProps.useSavedState = input["useSavedState"].get<bool>();
 
-    __createWindow();
+    std::wstring datapath;
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+
+    if (helpers::hasField(input, "userDataPath")) {
+        std::string p = input["userDataPath"].get<std::string>();
+        datapath = converter.from_bytes(p);
+    }
+
+    __createWindow(datapath);
     output["success"] = true;
     return output;
 }

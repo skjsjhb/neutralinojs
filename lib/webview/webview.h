@@ -576,7 +576,7 @@ namespace webview {
 class browser {
 public:
   virtual ~browser() = default;
-  virtual bool embed(HWND, bool) = 0;
+  virtual bool embed(HWND, bool, const std::wstring) = 0;
   virtual void navigate(const std::string url) = 0;
   virtual void extend_user_agent(const std::string customAgent) = 0;
   virtual void resize(HWND) = 0;
@@ -592,25 +592,24 @@ using namespace Windows::Web::UI::Interop;
 
 class edge_html : public browser {
 public:
-  bool embed(HWND wnd, bool debug) override {
-    init_apartment(winrt::apartment_type::single_threaded);
-    auto process = WebViewControlProcess();
-    auto op = process.CreateWebViewControlAsync(reinterpret_cast<int64_t>(wnd),
-                                                Rect());
-    if (op.Status() != AsyncStatus::Completed) {
-      handle h(CreateEvent(nullptr, false, false, nullptr));
-      op.Completed([h = h.get()](auto, auto) { SetEvent(h); });
-      HANDLE hs[] = {h.get()};
-      DWORD i;
-      CoWaitForMultipleHandles(COWAIT_DISPATCH_WINDOW_MESSAGES |
-                                   COWAIT_DISPATCH_CALLS |
-                                   COWAIT_INPUTAVAILABLE,
-                               INFINITE, 1, hs, &i);
+    bool embed(HWND wnd, bool debug, const std::wstring datapath) override
+    {
+        init_apartment(winrt::apartment_type::single_threaded);
+        auto process = WebViewControlProcess();
+        auto op = process.CreateWebViewControlAsync(reinterpret_cast<int64_t>(wnd),
+            Rect());
+        if (op.Status() != AsyncStatus::Completed) {
+            handle h(CreateEvent(nullptr, false, false, nullptr));
+            op.Completed([h = h.get()](auto, auto) { SetEvent(h); });
+            HANDLE hs[] = { h.get() };
+            DWORD i;
+            CoWaitForMultipleHandles(COWAIT_DISPATCH_WINDOW_MESSAGES | COWAIT_DISPATCH_CALLS | COWAIT_INPUTAVAILABLE,
+                INFINITE, 1, hs, &i);
+        }
+        m_webview = op.GetResults();
+        m_webview.IsVisible(true);
+        return true;
     }
-    m_webview = op.GetResults();
-    m_webview.IsVisible(true);
-    return true;
-  }
 
   void navigate(const std::string url) override {
     Uri uri(winrt::to_hstring(url));
@@ -638,53 +637,54 @@ private:
 //
 class edge_chromium : public browser {
 public:
-  bool embed(HWND wnd, bool debug) override {
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    std::atomic_flag flag = ATOMIC_FLAG_INIT;
-    flag.test_and_set();
+    bool embed(HWND wnd, bool debug, const std::wstring datapath) override
+    {
+        CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+        std::atomic_flag flag = ATOMIC_FLAG_INIT;
+        flag.test_and_set();
 
-    char currentExePath[MAX_PATH];
-    GetModuleFileNameA(NULL, currentExePath, MAX_PATH);
-    char *currentExeName = PathFindFileNameA(currentExePath);
+        char currentExePath[MAX_PATH];
+        GetModuleFileNameA(NULL, currentExePath, MAX_PATH);
+        char* currentExeName = PathFindFileNameA(currentExePath);
 
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> wideCharConverter;
-    std::wstring userDataFolder =
-        wideCharConverter.from_bytes(std::getenv("APPDATA"));
-    std::wstring currentExeNameW = wideCharConverter.from_bytes(currentExeName);
-
-    HRESULT res = CreateCoreWebView2EnvironmentWithOptions(
-        nullptr,
-        (userDataFolder + L"/" + currentExeNameW).c_str(),
-        nullptr,
-        new webview2_com_handler(wnd, [&](ICoreWebView2Controller* controller) {
-            m_controller = controller;
-            m_controller->get_CoreWebView2(&m_webview);
-            m_webview->AddRef();
-
-            ICoreWebView2Settings* m_settings;
-            m_webview->get_Settings(&m_settings);
-            if (debug) {
-                m_settings->put_AreDevToolsEnabled(TRUE);
-                m_webview->OpenDevToolsWindow();
-            }
-            else {
-                m_settings->put_AreDevToolsEnabled(FALSE);
-                m_settings->put_IsStatusBarEnabled(FALSE);
-            }
-            flag.clear();
+        std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> wideCharConverter;
+        std::wstring userDataFolder = wideCharConverter.from_bytes(std::getenv("APPDATA"));
+        std::wstring currentExeNameW = datapath;
+        if (currentExeNameW.empty()) {
+            currentExeNameW = wideCharConverter.from_bytes(currentExeName);
         }
-    ));
-    if (res != S_OK) {
-      CoUninitialize();
-      return false;
+
+        HRESULT res = CreateCoreWebView2EnvironmentWithOptions(
+            nullptr,
+            (userDataFolder + L"/" + currentExeNameW).c_str(),
+            nullptr,
+            new webview2_com_handler(wnd, [&](ICoreWebView2Controller* controller) {
+                m_controller = controller;
+                m_controller->get_CoreWebView2(&m_webview);
+                m_webview->AddRef();
+
+                ICoreWebView2Settings* m_settings;
+                m_webview->get_Settings(&m_settings);
+                if (debug) {
+                    m_settings->put_AreDevToolsEnabled(TRUE);
+                    m_webview->OpenDevToolsWindow();
+                } else {
+                    m_settings->put_AreDevToolsEnabled(FALSE);
+                    m_settings->put_IsStatusBarEnabled(FALSE);
+                }
+                flag.clear();
+            }));
+        if (res != S_OK) {
+            CoUninitialize();
+            return false;
+        }
+        MSG msg = {};
+        while (flag.test_and_set() && GetMessage(&msg, NULL, 0, 0)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        return true;
     }
-    MSG msg = {};
-    while (flag.test_and_set() && GetMessage(&msg, NULL, 0, 0)) {
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-    return true;
-  }
 
   void extend_user_agent(const std::string customAgent) override {
     ICoreWebView2Settings *settings = nullptr;
@@ -791,124 +791,124 @@ private:
 
 class win32_edge_engine {
 public:
-  win32_edge_engine(bool debug, void *window, bool transparent) {
-    if (window == nullptr) {
-      HINSTANCE hInstance = GetModuleHandle(nullptr);
-      HICON icon = (HICON)LoadImage(
-          hInstance, IDI_APPLICATION, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
-          GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+    win32_edge_engine(bool debug, void* window, bool transparent, const std::wstring datapath)
+    {
+        if (window == nullptr) {
+            HINSTANCE hInstance = GetModuleHandle(nullptr);
+            HICON icon = (HICON)LoadImage(
+                hInstance, IDI_APPLICATION, IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+                GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
 
-      WNDCLASSEX wc;
-      ZeroMemory(&wc, sizeof(WNDCLASSEX));
-      wc.cbSize = sizeof(WNDCLASSEX);
-      wc.hInstance = hInstance;
-      wc.lpszClassName = L"Neutralinojs_webview";
-      wc.hIcon = icon;
-      wc.hIconSm = icon;
-      wc.lpfnWndProc =
-          (WNDPROC)(+[](HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) -> int {
-            auto w = (win32_edge_engine *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-            static HMENU menuRef;
-            switch (msg) {
-            case WM_SIZE:
-              w->m_browser->resize(hwnd);
-              break;
-            case WM_CLOSE:
-              if(windowStateChange)
-                windowStateChange(WEBVIEW_WINDOW_CLOSE);
-              break;
-            case WM_ACTIVATE:
-              if(!windowStateChange) break;
-              if(LOWORD(wp) == WA_INACTIVE)
-                windowStateChange(WEBVIEW_WINDOW_BLUR);
-              else
-                windowStateChange(WEBVIEW_WINDOW_FOCUS);
-              break;
-            case WM_DESTROY:
-              PostQuitMessage(processExitCode);
-              break;
-            case WM_QUIT:
-              ExitProcess(wp);
-              break;
-            // ---- Begin Tray lib related --------
-            case WM_TRAY_PASS_MENU_REF:
-              menuRef = (HMENU) wp;
-              break;
-            case WM_TRAY_CALLBACK_MESSAGE:
-              if (lp == WM_LBUTTONUP || lp == WM_RBUTTONUP) {
-                POINT p;
-                GetCursorPos(&p);
-                SetForegroundWindow(hwnd);
-                WORD cmd = TrackPopupMenu(menuRef, TPM_LEFTALIGN | TPM_RIGHTBUTTON |
-                                                    TPM_RETURNCMD | TPM_NONOTIFY,
-                                          p.x, p.y, 0, hwnd, nullptr);
-                SendMessage(hwnd, WM_COMMAND, cmd, 0);
-              }
-              break;
-            case WM_COMMAND:
-              if (wp >= ID_TRAY_FIRST) {
-                MENUITEMINFO item;
-                memset(&item, 0, sizeof(item));
-                item.cbSize = sizeof(MENUITEMINFO);
-                item.fMask = MIIM_ID | MIIM_DATA;
-                if (GetMenuItemInfo(menuRef, wp, false, &item)) {
-                  struct tray_menu *menu = (struct tray_menu *)item.dwItemData;
-                  if (menu != nullptr && menu->cb != nullptr) {
-                    menu->cb(menu);
-                  }
+            WNDCLASSEX wc;
+            ZeroMemory(&wc, sizeof(WNDCLASSEX));
+            wc.cbSize = sizeof(WNDCLASSEX);
+            wc.hInstance = hInstance;
+            wc.lpszClassName = L"Neutralinojs_webview";
+            wc.hIcon = icon;
+            wc.hIconSm = icon;
+            wc.lpfnWndProc = (WNDPROC)(+[](HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) -> int {
+                auto w = (win32_edge_engine*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+                static HMENU menuRef;
+                switch (msg) {
+                case WM_SIZE:
+                    w->m_browser->resize(hwnd);
+                    break;
+                case WM_CLOSE:
+                    if (windowStateChange)
+                        windowStateChange(WEBVIEW_WINDOW_CLOSE);
+                    break;
+                case WM_ACTIVATE:
+                    if (!windowStateChange)
+                        break;
+                    if (LOWORD(wp) == WA_INACTIVE)
+                        windowStateChange(WEBVIEW_WINDOW_BLUR);
+                    else
+                        windowStateChange(WEBVIEW_WINDOW_FOCUS);
+                    break;
+                case WM_DESTROY:
+                    PostQuitMessage(processExitCode);
+                    break;
+                case WM_QUIT:
+                    ExitProcess(wp);
+                    break;
+                // ---- Begin Tray lib related --------
+                case WM_TRAY_PASS_MENU_REF:
+                    menuRef = (HMENU)wp;
+                    break;
+                case WM_TRAY_CALLBACK_MESSAGE:
+                    if (lp == WM_LBUTTONUP || lp == WM_RBUTTONUP) {
+                        POINT p;
+                        GetCursorPos(&p);
+                        SetForegroundWindow(hwnd);
+                        WORD cmd = TrackPopupMenu(menuRef, TPM_LEFTALIGN | TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                            p.x, p.y, 0, hwnd, nullptr);
+                        SendMessage(hwnd, WM_COMMAND, cmd, 0);
+                    }
+                    break;
+                case WM_COMMAND:
+                    if (wp >= ID_TRAY_FIRST) {
+                        MENUITEMINFO item;
+                        memset(&item, 0, sizeof(item));
+                        item.cbSize = sizeof(MENUITEMINFO);
+                        item.fMask = MIIM_ID | MIIM_DATA;
+                        if (GetMenuItemInfo(menuRef, wp, false, &item)) {
+                            struct tray_menu* menu = (struct tray_menu*)item.dwItemData;
+                            if (menu != nullptr && menu->cb != nullptr) {
+                                menu->cb(menu);
+                            }
+                        }
+                        return 0;
+                    }
+                    break;
+                // ---- /End Tray lib related --------
+                case WM_GETMINMAXINFO: {
+                    auto lpmmi = (LPMINMAXINFO)lp;
+                    if (w == nullptr) {
+                        return 0;
+                    }
+                    if (w->m_maxsz.x > 0 && w->m_maxsz.y > 0) {
+                        lpmmi->ptMaxSize = w->m_maxsz;
+                        lpmmi->ptMaxTrackSize = w->m_maxsz;
+                    }
+                    if (w->m_minsz.x > 0 && w->m_minsz.y > 0) {
+                        lpmmi->ptMinTrackSize = w->m_minsz;
+                    }
+                } break;
+                default:
+                    return DefWindowProc(hwnd, msg, wp, lp);
                 }
                 return 0;
-              }
-              break;
-            // ---- /End Tray lib related --------
-            case WM_GETMINMAXINFO: {
-              auto lpmmi = (LPMINMAXINFO)lp;
-              if (w == nullptr) {
-                return 0;
-              }
-              if (w->m_maxsz.x > 0 && w->m_maxsz.y > 0) {
-                lpmmi->ptMaxSize = w->m_maxsz;
-                lpmmi->ptMaxTrackSize = w->m_maxsz;
-              }
-              if (w->m_minsz.x > 0 && w->m_minsz.y > 0) {
-                lpmmi->ptMinTrackSize = w->m_minsz;
-              }
-            } break;
-            default:
-              return DefWindowProc(hwnd, msg, wp, lp);
-            }
-            return 0;
-          });
-      RegisterClassEx(&wc);
-      m_window = CreateWindow(L"Neutralinojs_webview", L"", WS_OVERLAPPEDWINDOW, 99999999,
-                              CW_USEDEFAULT, 640, 480, nullptr, nullptr,
-                              GetModuleHandle(nullptr), nullptr);
-      SetWindowLongPtr(m_window, GWLP_USERDATA, (LONG_PTR)this);
-    } else {
-      m_window = *(static_cast<HWND *>(window));
+            });
+            RegisterClassEx(&wc);
+            m_window = CreateWindow(L"Neutralinojs_webview", L"", WS_OVERLAPPEDWINDOW, 99999999,
+                CW_USEDEFAULT, 640, 480, nullptr, nullptr,
+                GetModuleHandle(nullptr), nullptr);
+            SetWindowLongPtr(m_window, GWLP_USERDATA, (LONG_PTR)this);
+        } else {
+            m_window = *(static_cast<HWND*>(window));
+        }
+
+        setDpi();
+
+        // stop the taskbar icon from showing by removing WS_EX_APPWINDOW.
+        SetWindowLong(m_window, GWL_EXSTYLE, GetWindowLong(m_window, GWL_EXSTYLE) & ~WS_EX_APPWINDOW);
+        ShowWindow(m_window, SW_SHOW);
+        UpdateWindow(m_window);
+        SetForegroundWindow(m_window);
+
+        // store the original initial window style
+        m_originalStyleEx = GetWindowLong(m_window, GWL_EXSTYLE);
+
+        // set dark mode of title bar according to system theme
+        TrySetWindowTheme(m_window);
+
+        if (!m_browser->embed(m_window, debug, datapath)) {
+            m_browser = std::make_unique<webview::edge_html>();
+            m_browser->embed(m_window, debug, datapath);
+        }
+
+        m_browser->resize(m_window);
     }
-
-    setDpi();
-
-    // stop the taskbar icon from showing by removing WS_EX_APPWINDOW.
-    SetWindowLong(m_window, GWL_EXSTYLE, GetWindowLong(m_window, GWL_EXSTYLE) & ~WS_EX_APPWINDOW);
-    ShowWindow(m_window, SW_SHOW);
-    UpdateWindow(m_window);
-    SetForegroundWindow(m_window);
-
-    // store the original initial window style
-    m_originalStyleEx = GetWindowLong(m_window, GWL_EXSTYLE);
-
-    // set dark mode of title bar according to system theme
-    TrySetWindowTheme(m_window);
-
-    if (!m_browser->embed(m_window, debug)) {
-      m_browser = std::make_unique<webview::edge_html>();
-      m_browser->embed(m_window, debug);
-    }
-
-    m_browser->resize(m_window);
-  }
 
   void run() {
     MSG msg;
@@ -1038,6 +1038,7 @@ private:
 };
 
 using browser_engine = win32_edge_engine;
+#define HAS_DATAPATH_SUPPORT
 } // namespace webview
 
 #endif /* WEBVIEW_GTK, WEBVIEW_COCOA, WEBVIEW_EDGE */
@@ -1046,16 +1047,28 @@ namespace webview {
 
 class webview : public browser_engine {
 public:
-  webview(bool debug = false, void *wnd = nullptr, bool transparent = false)
-      : browser_engine(debug, wnd, transparent) {}
+#ifdef HAS_DATAPATH_SUPPORT
+    webview(bool debug = false, void* wnd = nullptr, bool transparent = false, const std::wstring datapath = L"")
+        : browser_engine(debug, wnd, transparent, datapath)
+    {
+    }
 
-  void navigate(const std::string url) {
-    browser_engine::navigate(url);
-  }
+#else
+    webview(bool debug = false, void* wnd = nullptr, bool transparent = false)
+        : browser_engine(debug, wnd, transparent)
+    {
+    }
+#endif
 
-  void setEventHandler(eventHandler_t handler) {
-    windowStateChange = handler;
-  }
+    void navigate(const std::string url)
+    {
+        browser_engine::navigate(url);
+    }
+
+    void setEventHandler(eventHandler_t handler)
+    {
+        windowStateChange = handler;
+    }
 
 };
 } // namespace webview
