@@ -21,6 +21,23 @@ json vendor(const json& input);
  * All fields are mandatory. They can be left as empty if unused, but they must exist.
  */
 json request(const json& input);
+
+/**
+ * Performs HTTP request and saves result in file.
+ *
+ * This removes data forwarding between backend and frontend.
+ */
+json dl(const json& input);
+
+/**
+ * Performs multiple HTTP requests concurrently and saves result in file.
+ *
+ * This method does not limit the number of threads, so the frontend should take care of the request concurrency
+ * in case of crash.
+ *
+ * Request content is an array containing identical params for `dl` method.
+ */
+json dlMulti(const json& input);
 }
 
 #endif // #define NEU_ALT_H

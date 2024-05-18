@@ -134,6 +134,8 @@ map<string, router::NativeMethod> methodMap = {
     // Alt Server
     { "alt.vendor", alt::vendor },
     { "alt.request", alt::request },
+    { "alt.dl", alt::dl },
+    { "alt.dlMulti", alt::dlMulti }
 };
 
 map<string, router::NativeMethod> getMethodMap() {
