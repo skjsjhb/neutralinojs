@@ -45,6 +45,7 @@
 #define WEBVIEW_COCOA
 #elif defined(_WIN32)
 #define WEBVIEW_EDGE
+#define HAS_DATAPATH_SUPPORT
 #else
 #error "please, specify webview backend"
 #endif
@@ -1038,7 +1039,7 @@ private:
 };
 
 using browser_engine = win32_edge_engine;
-#define HAS_DATAPATH_SUPPORT
+
 } // namespace webview
 
 #endif /* WEBVIEW_GTK, WEBVIEW_COCOA, WEBVIEW_EDGE */
