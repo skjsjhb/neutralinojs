@@ -869,15 +869,18 @@ json init(const json &input) {
     if(helpers::hasField(input, "useSavedState"))
         windowProps.useSavedState = input["useSavedState"].get<bool>();
 
+#ifdef __APPLE__
+    __createWindow();
+#else
     std::wstring datapath;
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-
     if (helpers::hasField(input, "userDataPath")) {
         std::string p = input["userDataPath"].get<std::string>();
         datapath = converter.from_bytes(p);
     }
-
     __createWindow(datapath);
+#endif
+
     output["success"] = true;
     return output;
 }
