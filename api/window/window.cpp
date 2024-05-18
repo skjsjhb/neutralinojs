@@ -534,7 +534,7 @@ void _close(int exitCode) {
 
 namespace controllers {
 
-    void __createWindow(const std::wstring datapath)
+    void __createWindow(const std::wstring datapath = L"")
     {
         savedState = windowProps.useSavedState && __loadSavedWindowProps();
 
